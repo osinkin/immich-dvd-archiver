@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "immich-dvd-archiver"
+version = "0.2.0"
+description = "Resize an Immich photo library to 1920x1080 JPEG and split it into DVD-sized folders"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Denis Osinkin", email = "osinkin@gmail.com" }]
+keywords = ["immich", "dvd", "archive", "photos", "jpeg", "resize"]
+dependencies = [
+    "Pillow>=10.4",
+    "pillow-heif>=0.18",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+immich-dvd = "immich_dvd.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["immich_dvd*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

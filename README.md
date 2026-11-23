@@ -25,6 +25,28 @@ run.bat
 python -m immich_dvd
 ```
 
+### Linux
+
+```bash
+sudo apt install python3-tk        # нужно только для GUI
+python3 -m pip install -r requirements.txt
+python3 -m immich_dvd              # GUI
+```
+
+### Без GUI (Linux-сервер, cron, SSH)
+
+```bash
+# только оценка объёма, ничего не пишется
+python3 -m immich_dvd --no-gui --source /mnt/immich/library --dest /mnt/archive --estimate
+
+# обработка
+python3 -m immich_dvd --no-gui --source /mnt/immich/library --dest /mnt/archive --disc-size 4.3
+```
+
+Все параметры: `python3 -m immich_dvd --help`. После `pip install .` доступна команда `immich-dvd`.
+Если графическое окружение недоступно, программа сама предложит режим `--no-gui`.
+Ctrl+C останавливает работу после текущего файла; повторный запуск продолжит с места остановки.
+
 ## Как пользоваться
 
 1. **Библиотека Immich** — папка `library` (например, `\\server\immich\library`) или папка
