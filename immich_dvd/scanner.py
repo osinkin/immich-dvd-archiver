@@ -141,6 +141,7 @@ def scan(
     cancelled: Callable[[], bool] | None = None,
 ) -> ScanResult:
     result = ScanResult()
+    result.source = str(source)
     found = 0
 
     for path in iter_files(source):

@@ -34,6 +34,7 @@ class App(tk.Tk):
         self.cancel_event = threading.Event()
         self.running = False
         self.closing = False
+        self._estimate_cache: dict | None = None
 
         self._build()
         self._apply_settings(load_settings())
@@ -220,9 +221,36 @@ class App(tk.Tk):
             messagebox.showerror("Проверка настроек", str(exc), parent=self)
             return
         save_settings(settings)
+
+        prepared_scan = None
+        cache = self._estimate_cache
+        if cache is not None:
+            try:
+                source, _ = resolve_paths(settings)
+            except ValueError:
+                source = None
+            if source is not None and cache.get("scan") is not None and cache["scan"].source == str(source):
+                stamp = cache.get("scanned_at")
+                stamp_text = stamp.strftime("%H:%M:%S") if stamp else "—"
+                reuse = messagebox.askyesno(
+                    "Список из оценки",
+                    f"Использовать список, полученный при оценке?\n\n"
+                    f"Изображений: {len(cache['scan'].files)}\n"
+                    f"Оценка сделана: {stamp_text}\n\n"
+                    "Файлы, добавленные или изменённые после оценки, учтены не будут.\n"
+                    "Выберите «Нет», чтобы просканировать библиотеку заново.",
+                    parent=self,
+                )
+                if reuse:
+                    prepared_scan = cache["scan"]
+                else:
+                    self._estimate_cache = None
+            else:
+                self._estimate_cache = None
+
         self._begin("Обработка…")
         self.worker_thread = threading.Thread(
-            target=self._run_worker, args=(settings,), daemon=True
+            target=self._run_worker, args=(settings, prepared_scan), daemon=True
         )
         self.worker_thread.start()
 
@@ -264,7 +292,7 @@ class App(tk.Tk):
         except Exception as exc:  # noqa: BLE001 - surfaced in the UI
             self.queue.put(("failed", f"{type(exc).__name__}: {exc}"))
 
-    def _run_worker(self, settings: Settings) -> None:
+    def _run_worker(self, settings: Settings, prepared_scan=None) -> None:
         try:
             summary = run_job(
                 settings,
@@ -273,6 +301,7 @@ class App(tk.Tk):
                 on_progress=lambda progress: self.queue.put(("progress", progress)),
                 on_log=lambda message: self.queue.put(("log", message)),
                 cancelled=self.cancel_event.is_set,
+                prepared_scan=prepared_scan,
             )
             self.queue.put(("done", summary))
         except CancelledError:
@@ -306,16 +335,20 @@ class App(tk.Tk):
             self._on_progress(payload)
         elif kind == "estimate":
             self._finish()
+            self._estimate_cache = payload
             self._show_estimate(payload)
         elif kind == "done":
             self._finish()
+            self._estimate_cache = None
             self._show_summary(payload)
         elif kind == "cancelled":
             self._finish()
+            self._estimate_cache = None
             self._log("Операция отменена.")
             self.stats_var.set("Отменено")
         elif kind == "failed":
             self._finish()
+            self._estimate_cache = None
             self._log(f"ОШИБКА: {payload}")
             messagebox.showerror("Ошибка", str(payload), parent=self)
 
@@ -386,6 +419,7 @@ class App(tk.Tk):
         )
         if free is not None and result["est_bytes"] > free:
             text += "\n\nВнимание: ожидаемый объём больше свободного места."
+        text += "\n\nСписок сохранён: кнопка «Старт» может использовать его без повторного сканирования."
         self._log(text.replace("\n", " | "))
         messagebox.showinfo("Оценка", text, parent=self)
 

@@ -67,3 +67,4 @@ class ScanResult:
     skipped: list[tuple[str, str]] = field(default_factory=list)
     errors: list[tuple[str, str]] = field(default_factory=list)
     total_bytes: int = 0
+    source: str = ""

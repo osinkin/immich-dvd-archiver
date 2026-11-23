@@ -5,10 +5,11 @@ import multiprocessing as mp
 import shutil
 import time
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
-from .models import CancelledError, Settings
+from .models import CancelledError, ScanResult, Settings
 from .resizer import fit_size, init_worker, process_file
 from .scanner import scan
 from .writer import Writer
@@ -53,6 +54,7 @@ def run_job(
     on_progress: Callable[[Progress], None] | None = None,
     on_log: Callable[[str], None] | None = None,
     cancelled: Callable[[], bool] | None = None,
+    prepared_scan: ScanResult | None = None,
 ) -> dict:
     def log(message: str) -> None:
         if on_log is not None:
@@ -60,16 +62,20 @@ def run_job(
 
     source, dest = resolve_paths(settings)
 
-    if on_phase is not None:
-        on_phase("scan")
-    log("Сканирование библиотеки…")
-    scan_started = time.time()
-    scan_result = scan(source, progress=on_scan, cancelled=cancelled)
-    log(
-        f"Сканирование: изображений {len(scan_result.files)}, "
-        f"пропущено {len(scan_result.skipped)}, ошибок {len(scan_result.errors)} "
-        f"за {time.time() - scan_started:.0f} с"
-    )
+    if prepared_scan is not None and prepared_scan.source == str(source):
+        scan_result = prepared_scan
+        log(f"Используется список из оценки: {len(scan_result.files)} изображений, повторное сканирование не нужно")
+    else:
+        if on_phase is not None:
+            on_phase("scan")
+        log("Сканирование библиотеки…")
+        scan_started = time.time()
+        scan_result = scan(source, progress=on_scan, cancelled=cancelled)
+        log(
+            f"Сканирование: изображений {len(scan_result.files)}, "
+            f"пропущено {len(scan_result.skipped)}, ошибок {len(scan_result.errors)} "
+            f"за {time.time() - scan_started:.0f} с"
+        )
 
     writer = Writer(dest, settings)
     if settings.skip_existing:
@@ -245,4 +251,6 @@ def estimate_job(
         "free_bytes": free_bytes,
         "source": str(source),
         "dest": str(dest),
+        "scan": scan_result,
+        "scanned_at": datetime.now(),
     }
