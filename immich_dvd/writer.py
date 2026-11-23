@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from .i18n import byte_units, t
 from .models import FileRecord, ResizeResult, ScanResult, Settings
 
 MANIFEST_COLUMNS = [
@@ -25,14 +26,15 @@ def long_path(path: Path | str) -> str:
 
 
 def human_bytes(value: float) -> str:
+    units = byte_units()
     value = float(value)
-    for unit in ("Б", "КиБ", "МиБ", "ГиБ", "ТиБ"):
-        if value < 1024 or unit == "ТиБ":
-            if unit == "Б":
-                return f"{int(value)} Б"
-            return f"{value:.2f} {unit}"
+    index = 0
+    while value >= 1024 and index < len(units) - 1:
         value /= 1024
-    return f"{value:.2f} ТиБ"
+        index += 1
+    if index == 0:
+        return f"{int(value)} {units[0]}"
+    return f"{value:.2f} {units[index]}"
 
 
 def _sanitize(name: str, limit: int = 60) -> str:
@@ -252,22 +254,26 @@ class Writer:
                 )
 
             lines = [
-                "Immich DVD Archive",
+                t("disc.title"),
                 "=" * 48,
-                f"Диск: {index} из {total}" + ("" if disc else " (без разбивки)"),
-                f"Файлов: {len(disc_rows)}",
-                f"Объём: {human_bytes(out_bytes)}",
+                t("disc.disc" if disc else "disc.disc_flat", index=index, total=total),
+                t("disc.files", count=len(disc_rows)),
+                t("disc.size", size=human_bytes(out_bytes)),
             ]
             if dates:
-                lines.append(f"Даты съёмки: {dates[0][:10]} … {dates[-1][:10]}")
+                lines.append(t("disc.dates", first=dates[0][:10], last=dates[-1][:10]))
             lines += [
-                f"Создано: {datetime.now():%Y-%m-%d %H:%M:%S}",
-                f"Источник: {self.settings.source}",
+                t("disc.created", time=f"{datetime.now():%Y-%m-%d %H:%M:%S}"),
+                t("disc.source", path=self.settings.source),
                 "",
-                "Структура: <год>/<год-месяц-день>/<дата_время_имя>.jpg",
-                f"Изображения уменьшены до рамки {self.settings.max_width}×{self.settings.max_height} "
-                f"(JPEG, качество {self.settings.jpeg_quality}).",
-                "Полный список файлов — в MANIFEST.csv рядом с этим файлом.",
+                t("disc.structure"),
+                t(
+                    "disc.resized",
+                    width=self.settings.max_width,
+                    height=self.settings.max_height,
+                    quality=self.settings.jpeg_quality,
+                ),
+                t("disc.manifest"),
             ]
             self._write_text(folder / "README.txt", "\n".join(lines) + "\n")
 
@@ -281,24 +287,24 @@ class Writer:
         total_src = sum(int(row.get("src_bytes") or 0) for row in rows)
         discs = sorted({int(row.get("disc") or 0) for row in rows})
         lines = [
-            "Immich DVD Archive — отчёт",
+            t("report.title"),
             "=" * 48,
-            f"Создано: {datetime.now():%Y-%m-%d %H:%M:%S}",
-            f"Источник: {self.settings.source}",
-            f"Назначение: {self.settings.dest}",
+            t("report.created", time=f"{datetime.now():%Y-%m-%d %H:%M:%S}"),
+            t("report.source", path=self.settings.source),
+            t("report.dest", path=self.settings.dest),
             "",
-            f"Файлов в архиве: {len(rows)}",
-            f"Исходный объём: {human_bytes(total_src)}",
-            f"Объём результата: {human_bytes(total_out)}",
-            f"Экономия: {human_bytes(max(0, total_src - total_out))}",
-            f"Дисков: {len(discs)}",
+            t("report.files", count=len(rows)),
+            t("report.src_size", size=human_bytes(total_src)),
+            t("report.out_size", size=human_bytes(total_out)),
+            t("report.saved", size=human_bytes(max(0, total_src - total_out))),
+            t("report.discs", count=len(discs)),
         ]
         if scan is not None:
-            lines.append(f"Пропущено файлов: {len(scan.skipped)} (см. skipped.csv)")
-            lines.append(f"Ошибок сканирования: {len(scan.errors)}")
-        lines.append(f"Ошибок обработки: {len(errors)} (см. errors.csv)")
+            lines.append(t("report.skipped", count=len(scan.skipped)))
+            lines.append(t("report.scan_errors", count=len(scan.errors)))
+        lines.append(t("report.proc_errors", count=len(errors)))
         lines.append("")
-        lines.append("Исходная библиотека не изменялась (доступ только на чтение).")
+        lines.append(t("report.readonly"))
         self._write_text(self.dest / "_REPORT.txt", "\n".join(lines) + "\n")
 
     # ------------------------------------------------------------------ helpers

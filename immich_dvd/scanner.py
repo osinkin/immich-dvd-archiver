@@ -8,6 +8,7 @@ from typing import Callable
 
 from PIL import Image
 
+from .i18n import t
 from .models import CancelledError, FileRecord, ScanResult
 
 try:  # HEIC/HEIF support is optional but expected
@@ -150,19 +151,19 @@ def scan(
 
         ext = path.suffix.lower()
         if ext in RAW_EXTS:
-            result.skipped.append((str(path), "RAW — не поддерживается"))
+            result.skipped.append((str(path), t("scan.raw")))
             continue
         if ext in VIDEO_EXTS:
-            result.skipped.append((str(path), "видео — пропущено"))
+            result.skipped.append((str(path), t("scan.video")))
             continue
         if ext not in IMAGE_EXTS:
             if ext in IGNORED_EXTS or path.name.lower() in IGNORED_NAMES:
                 continue
-            result.skipped.append((str(path), f"неизвестный формат ({ext or 'без расширения'})"))
+            result.skipped.append((str(path), t("scan.unknown", ext=ext or t("scan.no_ext"))))
             continue
 
         if ext not in _SUPPORTED_EXTS:
-            result.skipped.append((str(path), f"формат не поддерживается ({ext})"))
+            result.skipped.append((str(path), t("scan.unsupported", ext=ext)))
             continue
 
         try:
@@ -176,7 +177,7 @@ def scan(
 
         taken, width, height, orientation = read_meta(path)
         if not width or not height:
-            result.errors.append((str(path), "не удалось прочитать изображение"))
+            result.errors.append((str(path), t("scan.read_error")))
             continue
         if taken is None:
             taken = datetime.fromtimestamp(stat.st_mtime)

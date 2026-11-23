@@ -9,6 +9,7 @@ import time
 
 from . import __version__
 from .config import load_settings
+from .i18n import SUPPORTED, detect_language, set_language, t
 from .job import estimate_job, run_job
 from .models import CancelledError, Settings
 from .writer import human_bytes
@@ -33,6 +34,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--estimate", action="store_true", help="scan and print an estimate, do not write files")
     parser.add_argument("--no-gui", action="store_true", help="run without the graphical interface")
     parser.add_argument("--gui", action="store_true", help="force the graphical interface")
+    parser.add_argument("--lang", choices=SUPPORTED, help="interface language (ru or en)")
 
     parser.add_argument("--max-width", type=int, metavar="PX", help="maximum width of the output image")
     parser.add_argument("--max-height", type=int, metavar="PX", help="maximum height of the output image")
@@ -80,21 +82,21 @@ def _settings_from_args(args: argparse.Namespace) -> Settings:
 
 def _validate(settings: Settings) -> str | None:
     if not settings.source.strip():
-        return "source folder is not set (use --source)"
+        return "cli.err_no_source"
     if not settings.dest.strip():
-        return "destination folder is not set (use --dest)"
+        return "cli.err_no_dest"
     if not 50 <= settings.jpeg_quality <= 95:
-        return "--quality must be between 50 and 95"
+        return "cli.err_quality"
     if settings.disc_limit_gib <= 0:
-        return "--disc-size must be positive"
+        return "cli.err_disc"
     if settings.workers < 0:
-        return "--workers must be 0 or greater"
+        return "cli.err_workers"
     return None
 
 
 def _install_sigint(cancel_event: threading.Event) -> None:
     def handler(signum, frame):  # noqa: ANN001, ARG001
-        print("\nCancelling, waiting for the current file…", file=sys.stderr)
+        print("\n" + t("cli.cancel_wait"), file=sys.stderr)
         cancel_event.set()
 
     try:
@@ -105,24 +107,24 @@ def _install_sigint(cancel_event: threading.Event) -> None:
 
 def _print_estimate(result: dict) -> None:
     free = result.get("free_bytes")
-    print(f"Source:            {result['source']}")
-    print(f"Destination:       {result['dest']}")
-    print(f"Images found:      {result['files']}")
-    print(f"To process:        {result['remaining']}")
-    print(f"Will be resized:   {result['resize_count']}")
-    print(f"Copied as is:      {result['copy_count']}")
-    print(f"Skipped RAW/video: {result['skipped']}")
-    print(f"Scan errors:       {result['scan_errors']}")
-    print(f"Estimated size:    ~{human_bytes(result['est_bytes'])}")
-    print(f"Discs:             {result['discs']}")
-    print(f"Free space:        {human_bytes(free) if free is not None else 'n/a'}")
+    print(t("cli.est_source", value=result["source"]))
+    print(t("cli.est_dest", value=result["dest"]))
+    print(t("cli.est_files", value=result["files"]))
+    print(t("cli.est_remaining", value=result["remaining"]))
+    print(t("cli.est_resize", value=result["resize_count"]))
+    print(t("cli.est_copy", value=result["copy_count"]))
+    print(t("cli.est_skipped", value=result["skipped"]))
+    print(t("cli.est_scan_errors", value=result["scan_errors"]))
+    print(t("cli.est_size", value=human_bytes(result["est_bytes"])))
+    print(t("cli.est_discs", value=result["discs"]))
+    print(t("cli.est_free", value=human_bytes(free) if free is not None else "n/a"))
 
 
 def run_cli(args: argparse.Namespace) -> int:
     settings = _settings_from_args(args)
     problem = _validate(settings)
     if problem is not None:
-        print(f"Error: {problem}", file=sys.stderr)
+        print(t("cli.error", message=t(problem)), file=sys.stderr)
         return 2
 
     cancel_event = threading.Event()
@@ -136,7 +138,9 @@ def run_cli(args: argparse.Namespace) -> int:
         if args.estimate:
             result = estimate_job(
                 settings,
-                on_scan=lambda count: None if args.quiet else print(f"\rScanning… {count} images", end="", file=sys.stderr),
+                on_scan=lambda count: None
+                if args.quiet
+                else print("\r" + t("cli.scanning", count=count), end="", file=sys.stderr),
                 on_log=log,
                 cancelled=cancel_event.is_set,
             )
@@ -157,9 +161,16 @@ def run_cli(args: argparse.Namespace) -> int:
             percent = progress.done / progress.total * 100 if progress.total else 0
             speed = progress.done / progress.elapsed if progress.elapsed > 0 else 0
             print(
-                f"\r{progress.done}/{progress.total} ({percent:.0f}%) · "
-                f"{human_bytes(progress.out_bytes)} · {speed:.1f} files/s · "
-                f"disc {progress.disc}",
+                "\r"
+                + t(
+                    "cli.progress",
+                    done=progress.done,
+                    total=progress.total,
+                    percent=percent,
+                    size=human_bytes(progress.out_bytes),
+                    speed=speed,
+                    disc=progress.disc,
+                ),
                 end="",
                 file=sys.stderr,
                 flush=True,
@@ -167,7 +178,9 @@ def run_cli(args: argparse.Namespace) -> int:
 
         summary = run_job(
             settings,
-            on_scan=lambda count: None if args.quiet else print(f"\rScanning… {count} images", end="", file=sys.stderr),
+            on_scan=lambda count: None
+            if args.quiet
+            else print("\r" + t("cli.scanning", count=count), end="", file=sys.stderr),
             on_progress=on_progress,
             on_log=log,
             cancelled=cancel_event.is_set,
@@ -175,20 +188,26 @@ def run_cli(args: argparse.Namespace) -> int:
         if not args.quiet:
             print("", file=sys.stderr)
         print(
-            f"Done: {summary['processed']} of {summary['total']} files, "
-            f"{human_bytes(summary['out_bytes'])}, {summary['discs']} disc(s), "
-            f"{summary['errors']} error(s), {summary['elapsed']:.0f} s "
-            f"(total {time.monotonic() - started:.0f} s)"
+            t(
+                "cli.done",
+                processed=summary["processed"],
+                total=summary["total"],
+                size=human_bytes(summary["out_bytes"]),
+                discs=summary["discs"],
+                errors=summary["errors"],
+                seconds=summary["elapsed"],
+                total_seconds=time.monotonic() - started,
+            )
         )
         return 0
     except CancelledError:
-        print("Cancelled. Run again to continue from the last written file.", file=sys.stderr)
+        print(t("cli.cancelled"), file=sys.stderr)
         return 130
     except KeyboardInterrupt:
-        print("Interrupted.", file=sys.stderr)
+        print(t("cli.interrupted"), file=sys.stderr)
         return 130
     except Exception as exc:  # noqa: BLE001 - top-level CLI boundary
-        print(f"Error: {type(exc).__name__}: {exc}", file=sys.stderr)
+        print(t("cli.error", message=f"{type(exc).__name__}: {exc}"), file=sys.stderr)
         return 1
 
 
@@ -196,12 +215,7 @@ def launch_gui() -> int:
     try:
         from .gui import main as gui_main
     except ImportError as exc:
-        print(
-            f"Cannot start the GUI: {exc}\n"
-            "On Linux install Tkinter (e.g. 'sudo apt install python3-tk') "
-            "or run with --no-gui.",
-            file=sys.stderr,
-        )
+        print(t("cli.tk_missing", error=exc), file=sys.stderr)
         return 1
     gui_main()
     return 0
@@ -210,6 +224,7 @@ def launch_gui() -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    set_language(args.lang or load_settings().language or detect_language())
 
     wants_cli = args.no_gui or args.estimate or args.source is not None or args.dest is not None
     if args.gui:
@@ -218,13 +233,7 @@ def main(argv: list[str] | None = None) -> int:
     if not wants_cli:
         if has_display():
             return launch_gui()
-        print(
-            "No graphical display detected.\n"
-            "Use --no-gui with --source/--dest, for example:\n"
-            "  immich-dvd --no-gui --source /mnt/immich/library --dest /mnt/archive\n"
-            "Run with --help for all options.",
-            file=sys.stderr,
-        )
+        print(t("cli.no_display"), file=sys.stderr)
         return 2
 
     return run_cli(args)

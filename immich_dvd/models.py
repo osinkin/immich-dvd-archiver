@@ -22,6 +22,7 @@ class Settings:
     minimal_exif: bool = False
     skip_existing: bool = True
     workers: int = 0
+    language: str = ""
 
     def disc_limit_bytes(self) -> int:
         return max(1, int(self.disc_limit_gib * 1024 ** 3))

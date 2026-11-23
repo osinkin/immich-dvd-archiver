@@ -9,6 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
+from .i18n import t
 from .models import CancelledError, ScanResult, Settings
 from .resizer import fit_size, init_worker, process_file
 from .scanner import scan
@@ -64,17 +65,21 @@ def run_job(
 
     if prepared_scan is not None and prepared_scan.source == str(source):
         scan_result = prepared_scan
-        log(f"Используется список из оценки: {len(scan_result.files)} изображений, повторное сканирование не нужно")
+        log(t("job.use_estimate", count=len(scan_result.files)))
     else:
         if on_phase is not None:
             on_phase("scan")
-        log("Сканирование библиотеки…")
+        log(t("job.scanning"))
         scan_started = time.time()
         scan_result = scan(source, progress=on_scan, cancelled=cancelled)
         log(
-            f"Сканирование: изображений {len(scan_result.files)}, "
-            f"пропущено {len(scan_result.skipped)}, ошибок {len(scan_result.errors)} "
-            f"за {time.time() - scan_started:.0f} с"
+            t(
+                "job.scan_done",
+                files=len(scan_result.files),
+                skipped=len(scan_result.skipped),
+                errors=len(scan_result.errors),
+                seconds=time.time() - scan_started,
+            )
         )
 
     writer = Writer(dest, settings)
@@ -84,7 +89,7 @@ def run_job(
         todo = list(scan_result.files)
     skipped_existing = len(scan_result.files) - len(todo)
     if skipped_existing:
-        log(f"Уже обработано ранее и пропущено: {skipped_existing}")
+        log(t("job.already_done", count=skipped_existing))
 
     total = len(todo)
     if total == 0:
@@ -102,7 +107,7 @@ def run_job(
     if on_phase is not None:
         on_phase("process")
     workers = settings.worker_count()
-    log(f"Обработка {total} файлов в {workers} поток(ах)…")
+    log(t("job.processing", total=total, workers=workers))
 
     context = mp.get_context("spawn")
     pool = context.Pool(processes=workers, initializer=init_worker, initargs=(settings,))
@@ -152,10 +157,10 @@ def run_job(
 
     elapsed = time.time() - started
     if was_cancelled:
-        log(f"Отменено после {done} из {total} файлов")
+        log(t("job.cancelled_after", done=done, total=total))
         raise CancelledError()
 
-    log(f"Готово за {elapsed:.0f} с, ошибок: {len(runtime_errors)}")
+    log(t("job.done", seconds=elapsed, errors=len(runtime_errors)))
     return {
         "total": total,
         "processed": done,
@@ -194,9 +199,9 @@ def estimate_job(
             on_log(message)
 
     source, dest = resolve_paths(settings)
-    log("Сканирование библиотеки…")
+    log(t("job.scanning"))
     scan_result = scan(source, progress=on_scan, cancelled=cancelled)
-    log(f"Найдено изображений: {len(scan_result.files)}")
+    log(t("cli.est_files", value=len(scan_result.files)))
 
     processed = _load_processed(dest / "manifest.csv") if settings.skip_existing else set()
     todo = [record for record in scan_result.files if record.path not in processed]
