@@ -19,7 +19,7 @@ much more useful.
 ## Development setup
 
 ```bash
-git clone https://github.com/OWNER/immich-dvd-archiver.git
+git clone https://github.com/osinkin/immich-dvd-archiver.git
 cd immich-dvd-archiver
 python -m pip install -e ".[dev]"
 ```

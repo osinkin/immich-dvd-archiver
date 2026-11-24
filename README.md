@@ -1,5 +1,6 @@
 # Immich DVD Archiver
 
+[![CI](https://github.com/osinkin/immich-dvd-archiver/actions/workflows/ci.yml/badge.svg)](https://github.com/osinkin/immich-dvd-archiver/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey)](#requirements)
@@ -41,7 +42,7 @@ size, and can resume after an interruption without reprocessing finished files.
 ## Installation
 
 ```bash
-git clone https://github.com/OWNER/immich-dvd-archiver.git
+git clone https://github.com/osinkin/immich-dvd-archiver.git
 cd immich-dvd-archiver
 python -m pip install -r requirements.txt
 ```

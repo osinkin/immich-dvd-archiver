@@ -32,8 +32,8 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/OWNER/immich-dvd-archiver"
-Issues = "https://github.com/OWNER/immich-dvd-archiver/issues"
+Repository = "https://github.com/osinkin/immich-dvd-archiver"
+Issues = "https://github.com/osinkin/immich-dvd-archiver/issues"
 
 [project.optional-dependencies]
 dev = [
