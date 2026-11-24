@@ -212,11 +212,17 @@ def run_cli(args: argparse.Namespace) -> int:
 
 def launch_gui() -> int:
     try:
+        import tkinter
+
         from .gui import main as gui_main
     except ImportError as exc:
         print(t("cli.tk_missing", error=exc), file=sys.stderr)
         return 1
-    gui_main()
+    try:
+        gui_main()
+    except tkinter.TclError:
+        print(t("cli.no_display"), file=sys.stderr)
+        return 2
     return 0
 
 
