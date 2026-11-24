@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import contextlib
 import io
 from pathlib import Path
 
 from PIL import Image, ImageOps
 
+from .i18n import t
 from .models import FileRecord, ResizeResult, Settings
 
 try:
@@ -60,13 +62,13 @@ def fit_size(width: int, height: int, box_w: int, box_h: int) -> tuple[int, int]
     scale = min(box_w / width, box_h / height, 1.0)
     if scale >= 1.0:
         return width, height
-    return max(1, int(round(width * scale))), max(1, int(round(height * scale)))
+    return max(1, round(width * scale)), max(1, round(height * scale))
 
 
 def process_file(record: FileRecord) -> ResizeResult:
     settings = _WORKER
     if settings is None:
-        return ResizeResult(record=record, ok=False, error="worker не инициализирован")
+        return ResizeResult(record=record, ok=False, error=t("resize.err_worker"))
     try:
         return _process(record, settings)
     except Exception as exc:
@@ -96,10 +98,8 @@ def _process(record: FileRecord, settings: Settings) -> ResizeResult:
         icc_profile = src.info.get("icc_profile")
         exif_bytes = _exif_bytes(src, settings) if settings.keep_exif else None
         if is_jpeg and needs_resize:
-            try:
+            with contextlib.suppress(Exception):
                 src.draft("RGB", (target_w, target_h))
-            except Exception:
-                pass
         img = ImageOps.exif_transpose(src)
         img = _to_rgb(img)
 

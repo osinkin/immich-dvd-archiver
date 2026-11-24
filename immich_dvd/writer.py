@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import csv
 import os
 import re
@@ -62,7 +63,7 @@ def _unique(path: Path) -> Path:
         candidate = path.with_name(f"{path.stem}_{index}{path.suffix}")
         if not os.path.exists(long_path(candidate)):
             return candidate
-    raise RuntimeError(f"Не удалось подобрать имя для {path}")
+    raise RuntimeError(t("write.err_unique", path=path))
 
 
 @dataclass
@@ -133,7 +134,7 @@ class Writer:
     def write(self, record: FileRecord, result: ResizeResult) -> Path:
         data = result.data
         if data is None:
-            raise ValueError("нет данных для записи")
+            raise ValueError(t("write.err_no_data"))
 
         if self.settings.split_discs:
             used = self.disc_used.get(self.current_disc, 0)
@@ -196,10 +197,8 @@ class Writer:
             return
         self._finalized = True
         if self._manifest_file is not None:
-            try:
+            with contextlib.suppress(OSError):
                 self._manifest_file.close()
-            except OSError:
-                pass
             self._manifest_file = None
 
         rows = self._read_manifest()

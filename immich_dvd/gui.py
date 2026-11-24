@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import queue
 import threading
 import tkinter as tk
@@ -225,7 +226,7 @@ class App(tk.Tk):
         resolve_paths(settings)
         return settings
 
-    def _on_language_change(self, event=None) -> None:  # noqa: ANN001, ARG002
+    def _on_language_change(self, event=None) -> None:
         name = self.language_var.get()
         code = next((item for item in SUPPORTED if LANGUAGE_NAMES[item] == name), "en")
         set_language(code)
@@ -239,10 +240,8 @@ class App(tk.Tk):
     def _retranslate(self) -> None:
         self.title(t("app.title"))
         for widget, key, kwargs in self._translatable:
-            try:
+            with contextlib.suppress(tk.TclError):
                 widget.configure(text=t(key, **kwargs))
-            except tk.TclError:
-                pass
         if not self.running:
             self.stats_var.set(t("gui.ready"))
 
@@ -344,7 +343,7 @@ class App(tk.Tk):
             self.queue.put(("estimate", result))
         except CancelledError:
             self.queue.put(("cancelled", None))
-        except Exception as exc:  # noqa: BLE001 - surfaced in the UI
+        except Exception as exc:
             self.queue.put(("failed", f"{type(exc).__name__}: {exc}"))
 
     def _run_worker(self, settings: Settings, prepared_scan=None) -> None:
@@ -361,7 +360,7 @@ class App(tk.Tk):
             self.queue.put(("done", summary))
         except CancelledError:
             self.queue.put(("cancelled", None))
-        except Exception as exc:  # noqa: BLE001 - surfaced in the UI
+        except Exception as exc:
             self.queue.put(("failed", f"{type(exc).__name__}: {exc}"))
 
     # -------------------------------------------------------------------- queue

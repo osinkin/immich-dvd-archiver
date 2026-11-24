@@ -4,10 +4,10 @@ import csv
 import multiprocessing as mp
 import shutil
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Callable
 
 from .i18n import t
 from .models import CancelledError, ScanResult, Settings
@@ -31,19 +31,19 @@ class Progress:
 
 def resolve_paths(settings: Settings) -> tuple[Path, Path]:
     if not settings.source.strip():
-        raise ValueError("Не выбрана папка-источник")
+        raise ValueError(t("job.err_no_source"))
     if not settings.dest.strip():
-        raise ValueError("Не выбрана папка назначения")
+        raise ValueError(t("job.err_no_dest"))
     source = Path(settings.source).expanduser().resolve()
     dest = Path(settings.dest).expanduser().resolve()
     if not source.is_dir():
-        raise ValueError(f"Папка-источник не найдена: {source}")
+        raise ValueError(t("job.err_source_missing", path=source))
     if source == dest:
-        raise ValueError("Папка назначения совпадает с источником")
+        raise ValueError(t("job.err_same"))
     if source in dest.parents:
-        raise ValueError("Папка назначения находится внутри источника — запись в библиотеку запрещена")
+        raise ValueError(t("job.err_dest_inside"))
     if dest in source.parents:
-        raise ValueError("Источник находится внутри папки назначения — выберите другую папку")
+        raise ValueError(t("job.err_source_inside"))
     return source, dest
 
 

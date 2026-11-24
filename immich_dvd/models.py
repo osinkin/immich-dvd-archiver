@@ -6,7 +6,7 @@ from datetime import datetime
 
 
 class CancelledError(Exception):
-    """Операция отменена пользователем."""
+    """The operation was cancelled by the user."""
 
 
 @dataclass

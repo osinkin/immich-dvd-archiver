@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import os
 import signal
 import sys
@@ -95,14 +96,12 @@ def _validate(settings: Settings) -> str | None:
 
 
 def _install_sigint(cancel_event: threading.Event) -> None:
-    def handler(signum, frame):  # noqa: ANN001, ARG001
+    def handler(signum, frame):
         print("\n" + t("cli.cancel_wait"), file=sys.stderr)
         cancel_event.set()
 
-    try:
+    with contextlib.suppress(ValueError, OSError):
         signal.signal(signal.SIGINT, handler)
-    except (ValueError, OSError):
-        pass
 
 
 def _print_estimate(result: dict) -> None:
@@ -152,7 +151,7 @@ def run_cli(args: argparse.Namespace) -> int:
         started = time.monotonic()
         last_print = 0.0
 
-        def on_progress(progress) -> None:  # noqa: ANN001
+        def on_progress(progress) -> None:
             nonlocal last_print
             now = time.monotonic()
             if args.quiet or (now - last_print < 1.0 and progress.done != progress.total):
@@ -206,7 +205,7 @@ def run_cli(args: argparse.Namespace) -> int:
     except KeyboardInterrupt:
         print(t("cli.interrupted"), file=sys.stderr)
         return 130
-    except Exception as exc:  # noqa: BLE001 - top-level CLI boundary
+    except Exception as exc:
         print(t("cli.error", message=f"{type(exc).__name__}: {exc}"), file=sys.stderr)
         return 1
 

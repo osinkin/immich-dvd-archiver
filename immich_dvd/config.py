@@ -1,12 +1,34 @@
 from __future__ import annotations
 
+import contextlib
 import json
+import os
 from dataclasses import asdict
 from pathlib import Path
 
 from .models import Settings
 
-CONFIG_PATH = Path(__file__).resolve().parent / "config.json"
+_LEGACY_CONFIG = Path(__file__).resolve().parent / "config.json"
+
+
+def _user_config_path() -> Path:
+    if os.name == "nt":
+        base = Path(os.environ.get("APPDATA") or Path.home() / "AppData" / "Roaming")
+    else:
+        base = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+    return base / "immich-dvd" / "config.json"
+
+
+def _config_path() -> Path:
+    # Keep using the old package-local file when it already exists, otherwise
+    # store settings in the per-user config folder (works for pip installs).
+    override = os.environ.get("IMMICH_DVD_CONFIG")
+    if override:
+        return Path(override).expanduser()
+    return _LEGACY_CONFIG if _LEGACY_CONFIG.exists() else _user_config_path()
+
+
+CONFIG_PATH = _config_path()
 
 
 def load_settings() -> Settings:
@@ -39,10 +61,9 @@ def load_settings() -> Settings:
 
 
 def save_settings(settings: Settings) -> None:
-    try:
+    with contextlib.suppress(OSError):
+        CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
         CONFIG_PATH.write_text(
             json.dumps(asdict(settings), ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-    except OSError:
-        pass

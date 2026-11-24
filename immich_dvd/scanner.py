@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import os
 import re
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Callable
 
 from PIL import Image
 
@@ -172,7 +172,7 @@ def scan(
             result.errors.append((str(path), str(exc)))
             continue
         if stat.st_size == 0:
-            result.skipped.append((str(path), "пустой файл"))
+            result.skipped.append((str(path), t("scan.empty")))
             continue
 
         taken, width, height, orientation = read_meta(path)
